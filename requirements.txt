@@ -1,0 +1,13 @@
+torch>=2.0
+torchvision>=0.15
+timm
+scikit-learn
+pandas
+numpy
+matplotlib
+seaborn
+Pillow
+tqdm
+datasets
+huggingface_hub
+tensorboard
