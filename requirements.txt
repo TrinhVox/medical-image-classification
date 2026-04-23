@@ -8,6 +8,6 @@ matplotlib
 seaborn
 Pillow
 tqdm
-datasets
+datasets==2.19.0
 huggingface_hub
 tensorboard
