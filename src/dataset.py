@@ -21,7 +21,7 @@ class ChestXrayDataset(Dataset):
         label = torch.zeros(14, dtype=torch.float)
         if adjusted:
             label.scatter_(0, torch.tensor(adjusted), 1)
-        image = self.data[idx]["image"]
+        image = self.data[idx]["image"].convert("RGB")
         if self.transform:
             image = self.transform(image)
         return image, label
