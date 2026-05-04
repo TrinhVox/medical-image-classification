@@ -7,11 +7,13 @@ import numpy as np
 import matplotlib.pyplot as plt
 import time
 import os
+from tqdm import tqdm
 from dataset import ChestXrayDataset
 from utils import train_transforms, val_transforms
 from torchvision import models
 from datasets import load_dataset
 from sklearn.metrics import roc_auc_score
+from collections import Counter
 
 cudnn.benchmark = True
 plt.ion()   # interactive mode
@@ -25,26 +27,34 @@ data_dir = '../data'
 train_ds = load_dataset(
     "alkzar90/NIH-Chest-X-ray-dataset",
     "image-classification",
-    split="train[:500]",
+    split="train",
     cache_dir = data_dir,
     trust_remote_code = True,
     )
-train_dataset = ChestXrayDataset(train_ds, transform=train_transforms)
+split = train_ds.train_test_split(test_size=0.1, seed=42)
+train_dataset = ChestXrayDataset(split["train"], transform=train_transforms)
+val_dataset = ChestXrayDataset(split["test"], transform=val_transforms)
 
-val_ds = load_dataset(
-    "alkzar90/NIH-Chest-X-ray-dataset",
-    "image-classification",
-    split="test[:100]",
-    cache_dir = data_dir,
-    trust_remote_code = True,
-    )
-val_dataset = ChestXrayDataset(val_ds, transform=val_transforms)
-
-dataloaders = {'train': torch.utils.data.DataLoader(train_dataset, batch_size=8, shuffle=True),
-               'val': torch.utils.data.DataLoader(val_dataset, batch_size=8, shuffle=False)}
+dataloaders = {'train': torch.utils.data.DataLoader(train_dataset, batch_size=32, shuffle=True, num_workers=4, pin_memory=True),
+               'val': torch.utils.data.DataLoader(val_dataset, batch_size=32, num_workers=4, shuffle=False, pin_memory=True)}
 dataset_sizes = {'train':train_dataset.__len__(),
                'val': val_dataset.__len__()}
 
+class_names = ['Atelectasis', 'Cardiomegaly', 'Effusion', 'Infiltration', 'Mass', 'Nodule', 'Pneumonia', 'Pneumothorax', 'Consolidation', 'Edema', 'Emphysema', 'Fibrosis', 'Pleural_Thickening', 'Hernia']
+
+def get_pos_weight(dataset):
+    all_labels = dataset["labels"]
+    weights=[]
+    count = Counter()
+    for label in all_labels:
+        count.update(label)
+    total_samples = len(all_labels)
+
+    for i in range(1,15):
+        label_count = count[i]
+        weights.append((total_samples - label_count)/label_count)
+    return torch.tensor(weights)
+    
 
 
 def train_model(model, criterion, optimizer, scheduler, num_epochs=25):
@@ -74,7 +84,7 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=25):
             
 
             # Iterate over data.
-            for inputs, labels in dataloaders[phase]:
+            for inputs, labels in tqdm(dataloaders[phase], desc=f'{phase}'):
                 inputs = inputs.to(device)
                 labels = labels.to(device)
 
@@ -115,6 +125,9 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=25):
                 if auc>best_auc:
                     best_auc = auc
                     torch.save(model.state_dict(), best_model_params_path)
+                for i, name in enumerate(class_names[1:]):
+                    class_auc = roc_auc_score(all_labels[:, i], all_outputs[:, i])
+                    print(f'{name}: {class_auc:.4f}')
 
         print()
 
@@ -132,16 +145,17 @@ num_ftrs = model.fc.in_features
 model.fc = nn.Linear(num_ftrs, 14)
 
 model_ft = model.to(device)
-
-criterion = nn.BCEWithLogitsLoss()
+pos_weight = get_pos_weight(train_ds).to(device)
+print(pos_weight)
+criterion = nn.BCEWithLogitsLoss(pos_weight=pos_weight)
 
 # Observe that all parameters are being optimized
-optimizer = optim.AdamW(model.parameters(), lr=1e-3, weight_decay=1e-2)
+optimizer = optim.AdamW(model.parameters(), lr=1e-5, weight_decay=1e-2)
 
 # Decay LR by a factor of 0.1 every 7 epochs
 exp_lr_scheduler = lr_scheduler.StepLR(optimizer, step_size=7, gamma=0.1)
 # Train model
 
 model_ft = train_model(model_ft, criterion, optimizer, exp_lr_scheduler,
-                       num_epochs=2)
+                       num_epochs=10)
 
