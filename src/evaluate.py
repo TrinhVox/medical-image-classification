@@ -1,6 +1,5 @@
 import torch
 import torch.backends.cudnn as cudnn
-import numpy as np
 import matplotlib.pyplot as plt
 import time
 import os
@@ -10,6 +9,7 @@ from utils import val_transforms
 from datasets import load_dataset
 from sklearn.metrics import roc_auc_score
 from model import create_model
+import argparse
 
 cudnn.benchmark = True
 plt.ion()   # interactive mode
@@ -36,12 +36,12 @@ class_names = ['Atelectasis', 'Cardiomegaly', 'Effusion', 'Infiltration', 'Mass'
 
 
 
-def test_model():
+def test_model(model_path):
     since = time.time()
 
     # Create a temporary directory to save training checkpoints
 
-    best_model_params_path = os.path.join('../models', 'best_model_params.pt')
+    best_model_params_path = os.path.join('../models', model_path)
 
     model = create_model()
     model.load_state_dict(torch.load(best_model_params_path, weights_only=True))
@@ -81,5 +81,7 @@ def test_model():
     return
 
 
-
-model_ft = test_model()
+parser = argparse.ArgumentParser()
+parser.add_argument('--model', type=str, required=True, help='Model filename in ../models/')
+args = parser.parse_args()
+model_ft = test_model(args.model)
