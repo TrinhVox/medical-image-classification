@@ -63,7 +63,7 @@ Weak Performing Classes:
 
 ![Infiltration](outputs/comparison/gradcam_Infiltration_(incorrect)_31.png)
 
-
+For the strong performing classes such as Cardiomegalyn and Hernia, both models correctly attend to the cardiac silhouette to classify. For Pneumonia, the freeze/unfreeze gives better attention to the lung opacities hence delivered a better result compared to the baseline model. However, for Infiltration, both models focus on shoulders region rather than actual organs therefore both delivered considerably weak results. 
 
 ## Project Structure
 
