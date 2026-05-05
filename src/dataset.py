@@ -15,16 +15,21 @@ class ChestXrayDataset(Dataset):
         self.transform = transform
     def __len__(self):
         return len(self.data)
-    def __getitem__(self,idx):
-        raw_labels = self.data[idx]["labels"]
+    def __getitem__(self, idx):
+        try:
+            sample = self.data[idx]
+            raw_labels = sample["labels"]
+            image = sample["image"].convert("RGB")
+        except:
+            return self.__getitem__((idx + 1) % len(self))
+        
         adjusted = [l - 1 for l in raw_labels if l != 0]
         label = torch.zeros(14, dtype=torch.float)
         if adjusted:
             label.scatter_(0, torch.tensor(adjusted), 1)
-        image = self.data[idx]["image"].convert("RGB")
+        
         if self.transform:
             image = self.transform(image)
         return image, label
-        
 
         
