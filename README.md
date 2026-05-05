@@ -1,7 +1,9 @@
 # Chest X-ray Multi-Label Disease Classification
 
 Multi-label classification of 14 thoracic diseases from chest X-rays using ResNet-50, 
-achieving 0.76 macro AUC-ROC on NIH ChestX-ray14.
+achieving **0.77 macro AUC-ROC** on NIH ChestX-ray14 (~112k images).
+
+This project establishes a ResNet-50 baseline as a stepping stone toward the DenseNet-121 architecture used in CheXNet (Rajpurkar et al., 0.841 macro AUC), and investigates why diffuse pathologies like Pneumonia remain significantly harder to classify than focal conditions like Cardiomegaly.
 
 ![Grad-CAM comparison](outputs/comparison/gradcam_Pneumonia_incorrect_273.png)
 
@@ -9,12 +11,10 @@ achieving 0.76 macro AUC-ROC on NIH ChestX-ray14.
 
 ## Key Findings
 
-- Freeze/unfreeze transfer learning improved macro AUC from 0.75 to 0.77
-- Grad-CAM analysis revealed the model correctly localizes cardiac pathology 
-  but struggles with diffuse conditions like Pneumonia — attending to 
-  shoulder regions rather than lung fields
-- Pneumonia (0.67) and Infiltration (0.68) remain the hardest classes, 
-  consistent with their visual similarity and diffuse presentation
+**Transfer learning strategy matters.** Freeze/unfreeze fine-tuning consistently outperformed training from a frozen backbone across 13 of 14 classes, improving macro AUC from 0.75 → 0.77. The exception was Hernia (0.90 → 0.89), likely because the limited class frequency made full fine-tuning prone to overfitting on a small positive set.
+
+**Focal vs. diffuse pathology is the core challenge.** Grad-CAM analysis reveals a consistent pattern: the model correctly localises focal, morphologically distinct conditions (Cardiomegaly: 0.86 AUC, Hernia: 0.90 AUC) by attending to well-defined anatomical structures. For diffuse conditions (Pneumonia: 0.67, Infiltration: 0.68), the model attends to peripheral regions — shoulders, image borders — rather than anomical structures such as the lungs.
+
 
 ## Results
 
@@ -35,6 +35,8 @@ achieving 0.76 macro AUC-ROC on NIH ChestX-ray14.
 | Pleural_Thickening | 0.7235 | 0.7323 |
 | Hernia | 0.9023 | 0.8949 |
 | **Macro AUC** | **0.7546** | **0.7686** |
+
+*Evaluated on the official NIH ChestX-ray14 test split. AUC-ROC reported per class and macro-averaged. CheXNet (DenseNet-121) reports 0.841 macro AUC for reference.*
 
 ## Approach
 
@@ -119,10 +121,12 @@ python evaluate.py --model best_model_params_freeze.pt
 
 ## Future Work
 
-- DenseNet-121 backbone (used in CheXNet)
-- Focal loss for hard-to-classify diseases
-- Higher input resolution for small findings (Nodule)
-- Attention mechanisms to improve Pneumonia localization
+The 0.19 AUC gap between Pneumonia (0.67) and Cardiomegaly (0.86) is the central open problem. Three experiments follow directly from the Grad-CAM analysis:
+
+1. **DenseNet-121 backbone** — CheXNet uses dense connectivity to preserve fine-grained spatial features across layers. The hypothesis is that richer feature reuse will improve localisation of diffuse opacities without explicit attention supervision.
+
+2. **Spatial attention / transformer head** — Replacing global average pooling with a self-attention pooling layer to retain spatial structure through the classification head. Motivated directly by the Grad-CAM finding that diffuse pathologies require distributed spatial reasoning rather than localised feature detection.
+
 
 ## References
 
